@@ -10,7 +10,7 @@ Simple golang messaging app with RabbitMQ
 
 ## Setup
 
-Build Database Environment Container
+Create RabbitMQ container
 
 ```bash
 docker-compose up
