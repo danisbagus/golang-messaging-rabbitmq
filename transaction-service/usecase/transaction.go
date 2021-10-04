@@ -38,7 +38,8 @@ func (r TransactionUsecase) Create(data *dto.NewTransactionRequest) (*dto.NewTra
 
 	sendMailData := model.MailModel{
 		TransactionID: transactionID,
-		CustomerName:  "danisbagus",
+		CustomerName:  "danisbagus22",
+		CustomerEmail: "danishter22@gmail.com",
 	}
 
 	go r.MailRepo.SendMail(&sendMailData)
