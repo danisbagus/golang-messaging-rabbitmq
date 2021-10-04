@@ -6,7 +6,7 @@ Simple golang messaging app with RabbitMQ
 
 - [Golang](https://golang.org/) as main programming language.
 - [Go Module](https://go.dev/blog/using-go-modules) for package management.
-- [Docker-compose](https://docs.docker.com/compose/) for running MySQL Database.
+- [Docker-compose](https://docs.docker.com/compose/) for running RabbitMQ.
 
 ## Setup
 
