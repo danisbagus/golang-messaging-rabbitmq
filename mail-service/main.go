@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/smtp"
 	"os"
 
+	"github.com/danisbagus/golang-messaging-rabbitmq/common/messaging"
 	"github.com/joho/godotenv"
 )
 
@@ -22,6 +24,8 @@ type TemplateEmail struct {
 	TransactionID string
 }
 
+type Message map[string]interface{}
+
 func main() {
 	// load env file
 	err := godotenv.Load()
@@ -35,25 +39,57 @@ func main() {
 		subject: "Transaction Paid",
 	}
 
-	// set template data
-	templateData := TemplateEmail{
-		Name:          "Coder Pemula",
-		TransactionID: "PT10001",
+	// messaging client driver
+	messagingClient, err := messaging.GetMessagingConnection("amqp://guest:guest@localhost")
+	if err != nil {
+		fmt.Println("Error while connect to broker", err)
 	}
 
-	// parse template
-	errParse := reqMail.ParseTemplate("mail-service/transaction_paid.html", templateData)
-	if errParse != nil {
-		log.Fatal("Error while parse the template", err.Error())
+	defer messagingClient.Close()
+
+	msgs, err := messagingClient.ConsumeQueue("sendMailQueue")
+	if err != nil {
+		fmt.Println("Error while cosume queue", err)
 	}
 
-	// send email
-	errSend := reqMail.SendEmail()
-	if errSend != nil {
-		log.Fatal("Error while send email", errSend.Error())
-	}
+	forever := make(chan bool)
 
-	log.Println("Successfully to send email")
+	go func() {
+		for d := range msgs {
+			log.Printf("Received a message: %s", d.Body)
+			msg, err := Deserialize(d.Body)
+			if err != nil {
+				log.Fatal("Error while deserialize message", err.Error())
+			}
+
+			customerName := fmt.Sprintf("%v", msg["customer_name"])
+			transactionID := fmt.Sprintf("%v", msg["transaction_id"])
+
+			// set template data
+			templateData := TemplateEmail{
+				Name:          customerName,
+				TransactionID: transactionID,
+			}
+
+			// parse template
+			errParse := reqMail.ParseTemplate("mail-service/transaction_paid.html", templateData)
+			if errParse != nil {
+				log.Fatal("Error while parse the template", err.Error())
+			}
+
+			// send email
+			errSend := reqMail.SendEmail()
+			if errSend != nil {
+				log.Fatal("Error while send email", errSend.Error())
+			}
+
+			log.Println("Successfully to send email")
+
+		}
+	}()
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	<-forever
+
 }
 
 func (r *Request) SendEmail() error {
@@ -82,4 +118,12 @@ func (r *Request) ParseTemplate(templateFileName string, data interface{}) error
 	}
 	r.body = buf.String()
 	return nil
+}
+
+func Deserialize(b []byte) (Message, error) {
+	var msg Message
+	buf := bytes.NewBuffer(b)
+	decoder := json.NewDecoder(buf)
+	err := decoder.Decode(&msg)
+	return msg, err
 }
